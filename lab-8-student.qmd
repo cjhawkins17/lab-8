@@ -1,13 +1,15 @@
 ---
 title: "Lab 8: Searching for Efficiency"
-author: "Your name here!"
+author: "Christopher Hawkins"
 format: html
 editor: source
 embed-resources: true
+code-fold: true
 ---
 
 ```{r}
 #| label: pacakges
+#| message: false
 
 library(tidyverse)
 ```
@@ -22,14 +24,17 @@ folder, so all you need to do is read them in. 🙃
 #| label: read-in-old-data
 
 # Data from Lab 2
-surveys <- read_csv(here::here("data", "surveys.csv"))
+surveys <- read_csv(here::here("data", "surveys.csv"),
+                    show_col_types = FALSE)
 
 # Data from Lab 3
-evals <- read_csv(here::here("data", "teacher_evals.csv")) |> 
+evals <- read_csv(here::here("data", "teacher_evals.csv"),
+                  show_col_types = FALSE) |> 
   rename(sex = gender)
 
 # Data from Lab 7
-fish <- read_csv(here::here("data", "BlackfootFish.csv"))
+fish <- read_csv(here::here("data", "BlackfootFish.csv"),
+                 show_col_types = FALSE)
 ```
 
 ## Lab 2
@@ -44,7 +49,10 @@ each variable, with the datatype of that variable immediately below it's name.
 ```{r}
 #| label: map-data-types-of-surveys
 
-
+tibble(column = names(surveys), 
+       class_type = map_chr(.x = surveys, .f = class)) |> 
+  pivot_wider(names_from = column, 
+              values_from = class_type)
 ```
 
 ## Lab 3
@@ -62,7 +70,17 @@ list output back into a data frame.
 ```{r}
 #| label: map-to-mutate-columns
 
-
+clean_evals <- bind_cols(map_at(.x  = evals,
+                   .at = c("teacher_id",
+                           "weekday",
+                           "academic_degree",
+                           "seniority",
+                           "sex"),
+                   .f = as.factor
+                  )
+            )
+# Show that the variables are factors
+map_chr(.x = clean_evals, .f = class)
 ```
 
 Next up, we're going revisit Question 7 which asked:
@@ -88,7 +106,30 @@ I'm using the `sen_level` classification from Challenge 3
 ```{r}
 #| label: double-pivot-for-summary-table
 
-
+# Remove duplicates based on each professor's key attributes
+clean_evals |>
+  distinct(teacher_id, sex, academic_degree, seniority) |>
+# Create categories and count each category
+  mutate(
+    seniority = as.numeric(as.character(seniority)),  # Convert seniority to numeric
+    seniority_category = ifelse(seniority <= 4, "Junior", "Senior"),
+    degree_category = case_when(
+      academic_degree == "no_dgr" ~ "No Degree",
+      academic_degree == "ma" ~ "Masters",
+      academic_degree == "dr" ~ "Doctorate",
+      academic_degree == "prof" ~ "Professor"
+    )
+  ) |>
+  summarise(
+    Female = sum(sex == "female"),
+    Male = sum(sex == "male"),
+    Junior = sum(seniority_category == "Junior"),
+    Senior = sum(seniority_category == "Senior"),
+    `No Degree` = sum(degree_category == "No Degree"),
+    Masters = sum(degree_category == "Masters"),
+    Doctorate = sum(degree_category == "Doctorate"),
+    Professor = sum(degree_category == "Professor")
+  )
 ```
 
 ::: {.callout-tip}
@@ -110,6 +151,14 @@ Question 1 asked you to use `across()` to make a table which summarized:
 
 ```{r}
 #| label: map-missing-values-of-fish
+  
+# Count missing values for each column using map_int
+missing_values <- map_int(fish, ~ sum(is.na(.)))
 
-
+# Create a tibble and pivot it wider
+tibble(
+  column = names(missing_values),
+  missing_values = missing_values
+      ) |> 
+  pivot_wider(names_from = column, values_from = missing_values)
 ```
